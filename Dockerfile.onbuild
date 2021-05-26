@@ -1,0 +1,29 @@
+FROM maven:3-openjdk-8-slim AS build
+
+COPY . .
+# dependency management
+# RUN mvn -f /usr/src/app/pom.xml clean package
+RUN mvn -B -DskipTests clean dependency:list install
+
+
+FROM registry.artifakt.io/java:8
+COPY --from=build --chown=www-data:www-data /target/*.jar /usr/app/
+
+ENTRYPOINT ["java", "-Dserver.port=$PORT", "$JAVA_OPTS", "-jar", "/usr/app/target/*.jar"]
+
+# copy the artifakt folder on root
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN  if [ -d .artifakt ]; then cp -rp /var/www/html/.artifakt /.artifakt/; fi
+
+# FAILSAFE LOG FOLDER
+RUN mkdir -p /var/log/artifakt && chown www-data:www-data /var/log/artifakt
+
+# PERSISTENT DATA FOLDERS
+RUN mkdir -p /data && \
+    chown -R www-data:www-data /data
+
+# run custom scripts build.sh
+# hadolint ignore=SC1091
+RUN --mount=source=artifakt-custom-build-args,target=/tmp/build-args \
+    if [ -f /tmp/build-args ]; then source /tmp/build-args; fi && \
+    if [ -f /.artifakt/build.sh ]; then /.artifakt/build.sh; fi
