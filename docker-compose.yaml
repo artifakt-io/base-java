@@ -6,8 +6,6 @@ services:
     image: base-java:latest
     ports:
       - "8000:80"
-    env_file:
-      - .env
     volumes:
       - "data:/data"
     environment:
